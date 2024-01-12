@@ -30,7 +30,7 @@ if !exists("g:llama_overrides")
 endif
 const s:querydata = {"n_predict": 256, "stop": [ "\n" ], "stream": v:true }
 const s:curlcommand = ['curl','--data-raw', "{\"prompt\":\"### System:\"}", '--silent', '--no-buffer', '--request', 'POST', '--url', g:llama_api_url .. '/completion', '--header', "Content-Type: application/json"]
-let s:linedict = {}
+let s:linenr = 0
 
 func s:callbackHandler(bufn, channel, msg)
    if len(a:msg) < 3
@@ -43,13 +43,13 @@ func s:callbackHandler(bufn, channel, msg)
    let l:decoded_msg = json_decode(l:msg)
    let l:newtext = split(l:decoded_msg['content'], "\n", 1)
    if len(l:newtext) > 0
-      call setbufline(a:bufn, s:linedict[a:bufn], getbufline(a:bufn, s:linedict[a:bufn])[0] .. newtext[0])
+      call setbufline(a:bufn, s:linenr, getbufline(a:bufn, s:linenr)[0] .. newtext[0])
    else
       echo "nothing genned"
    endif
    if len(newtext) > 1
-      let l:failed = appendbufline(a:bufn, s:linedict[a:bufn], newtext[1:-1])
-      let s:linedict[a:bufn] = s:linedict[a:bufn] + len(newtext)-1
+      let l:failed = appendbufline(a:bufn, s:linenr, newtext[1:-1])
+      let s:linenr = s:linenr + len(newtext)-1
    endif
    if has_key(l:decoded_msg, "stop") && l:decoded_msg.stop
        echo "Finished generation"
@@ -65,8 +65,8 @@ func llama#doLlamaGen()
    endif
 
    let l:cbuffer = bufnr("%")
-   let s:linedict[l:cbuffer] = line('$')
-   let l:buflines = getbufline(l:cbuffer, 1, 1000)
+   let s:linenr = line('.')
+   let l:buflines = getbufline(l:cbuffer, 1, s:linenr)
    let l:querydata = copy(s:querydata)
    call extend(l:querydata, g:llama_overrides)
    if exists("w:llama_overrides")
